@@ -750,6 +750,14 @@ class BluetoothLe : Plugin() {
 
         val services = (call.getArray("services", JSArray()) as JSArray).toList<String>()
         val name = call.getString("name", null)
+        val manufacturerId = call.getInt("manufacturerId", null);
+
+        if (manufacturerId != null) {
+            val filter = ScanFilter.Builder()
+            filter.setManufacturerData(manufacturerId, byteArrayOf())
+            filters.add(filter.build());
+        }
+
         try {
             for (service in services) {
                 val filter = ScanFilter.Builder()
