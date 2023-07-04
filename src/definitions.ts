@@ -46,6 +46,10 @@ export interface RequestBleDeviceOptions {
    * Android scan mode (default: ScanMode.SCAN_MODE_BALANCED)
    */
   scanMode?: ScanMode;
+  /**
+   * Filter devices by manufacturer ID (Android only)
+   */
+  manufacturerId?: number;
 }
 
 /**
