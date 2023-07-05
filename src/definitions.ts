@@ -50,6 +50,10 @@ export interface RequestBleDeviceOptions {
    * Filter devices by manufacturer ID (Android only)
    */
   manufacturerId?: number;
+  /**
+   * Disable 'onScanResult' notification when last advertisement is the same as current (Android only)
+   */
+  discardSameRawAdvertisements?: boolean;
 }
 
 /**
