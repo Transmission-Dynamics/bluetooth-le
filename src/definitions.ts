@@ -46,6 +46,10 @@ export interface RequestBleDeviceOptions {
    * Android scan mode (default: ScanMode.SCAN_MODE_BALANCED)
    */
   scanMode?: ScanMode;
+  /**
+   * Disable 'onScanResult' notification when last advertisement is the same as current (Android only)
+   */
+  discardSameRawAdvertisements?: boolean;
 }
 
 /**
