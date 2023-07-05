@@ -76,6 +76,7 @@ class BluetoothLe : Plugin() {
     private var deviceScanner: DeviceScanner? = null
     private var displayStrings: DisplayStrings? = null
     private var aliases: Array<String> = arrayOf()
+    private var lastRawAdvertisementHexStrings = HashMap<String, String?>()
 
     override fun load() {
         displayStrings = getDisplayStrings()
@@ -318,6 +319,7 @@ class BluetoothLe : Plugin() {
         val scanSettings = getScanSettings(call) ?: return
         val namePrefix = call.getString("namePrefix", "") as String
         val allowDuplicates = call.getBoolean("allowDuplicates", false) as Boolean
+        val discardSameRawAdvertisements = call.getBoolean("discardSameRawAdvertisements", false) as Boolean
 
         try {
             deviceScanner?.stopScanning()
@@ -349,11 +351,13 @@ class BluetoothLe : Plugin() {
             },
             { result ->
                 run {
-                    val scanResult = getScanResult(result)
-                    try {
-                        notifyListeners("onScanResult", scanResult)
-                    } catch (e: ConcurrentModificationException) {
-                        Logger.error(TAG, "Error in notifyListeners: ${e.localizedMessage}", e)
+                    val scanResult = getScanResult(result, discardSameRawAdvertisements)
+                    if (scanResult != null) {
+                        try {
+                            notifyListeners("onScanResult", scanResult)
+                        } catch (e: ConcurrentModificationException) {
+                            Logger.error(TAG, "Error in notifyListeners: ${e.localizedMessage}", e)
+                        }
                     }
                 }
             })
@@ -801,8 +805,21 @@ class BluetoothLe : Plugin() {
         return bleDevice
     }
 
-    private fun getScanResult(result: ScanResult): JSObject {
+    private fun getScanResult(result: ScanResult, discardSameRawAdvertisements: Boolean? = null): JSObject? {
+        val rawAdvertisementHexString = result.scanRecord?.bytes?.let { bytesToString(it) }
+
+        if (discardSameRawAdvertisements == true) {
+            val deviceAddress = result.device.address
+            val lastRawAdvertisementHexString = lastRawAdvertisementHexStrings[deviceAddress];
+            lastRawAdvertisementHexStrings[deviceAddress] = rawAdvertisementHexString
+
+            if (lastRawAdvertisementHexString == rawAdvertisementHexString) {
+                return null;
+            }
+        }
+
         val scanResult = JSObject()
+        scanResult.put("rawAdvertisement", rawAdvertisementHexString)
 
         val bleDevice = getBleDevice(result.device)
         scanResult.put("device", bleDevice)
@@ -841,7 +858,6 @@ class BluetoothLe : Plugin() {
         result.scanRecord?.serviceUuids?.forEach { uuid -> uuids.put(uuid.toString()) }
         scanResult.put("uuids", uuids)
 
-        scanResult.put("rawAdvertisement", result.scanRecord?.bytes?.let { bytesToString(it) })
         return scanResult
     }
 
