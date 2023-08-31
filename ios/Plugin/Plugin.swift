@@ -24,7 +24,7 @@ public class BluetoothLe: CAPPlugin {
 
     @objc func initialize(_ call: CAPPluginCall) {
         guard !self.signatureHashSalt.dropFirst().allSatisfy({ $0 == self.signatureHashSalt.first }) else {
-            log("signatureHashSalt has default value!")
+            call.reject("Aborting initialization due to signatureHashSalt having default value!")
             return
         }
 
