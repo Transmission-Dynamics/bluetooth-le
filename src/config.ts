@@ -24,6 +24,12 @@ declare module '@capacitor/cli' {
         }
        */
       displayStrings?: DisplayStrings;
+
+      /**
+       * (**iOS only**)
+       * Salt to decode advertisement packets to check whether they are correct
+       */
+      signatureHashSalt?: string;
     };
   }
 }
