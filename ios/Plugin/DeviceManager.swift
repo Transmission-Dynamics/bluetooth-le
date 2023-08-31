@@ -1,10 +1,13 @@
 import Foundation
 import CoreBluetooth
+import CryptoKit
 
 class DeviceManager: NSObject, CBCentralManagerDelegate {
     typealias Callback = (_ success: Bool, _ message: String) -> Void
     typealias StateReceiver = (_ enabled: Bool) -> Void
     typealias ScanResultCallback = (_ device: Device, _ advertisementData: [String: Any], _ rssi: NSNumber) -> Void
+
+    private var signatureHashSalt: [UInt8]
 
     private var centralManager: CBCentralManager!
     private var viewController: UIViewController?
@@ -20,8 +23,12 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
     private var deviceNamePrefixFilter: String?
     private var shouldShowDeviceList = false
     private var allowDuplicates = false
+    private var manufaturerId: Int?
+    private var discardSameRawAdvertisements = false
+    private var lastAdvertsMap = [String: Data?]()
 
-    init(_ viewController: UIViewController?, _ displayStrings: [String: String], _ callback: @escaping Callback) {
+    init(_ viewController: UIViewController?, _ displayStrings: [String: String], _ signatureHashSalt: [UInt8], _ callback: @escaping Callback) {
+        self.signatureHashSalt = signatureHashSalt
         super.init()
         self.viewController = viewController
         self.displayStrings = displayStrings
@@ -80,6 +87,8 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         _ name: String?,
         _ namePrefix: String?,
         _ allowDuplicates: Bool,
+        _ manufacturerId: Int?,
+        _ discardSameRawAdvertisements: Bool,
         _ shouldShowDeviceList: Bool,
         _ scanDuration: Double?,
         _ callback: @escaping Callback,
@@ -92,8 +101,12 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
             self.discoveredDevices = [String: Device]()
             self.shouldShowDeviceList = shouldShowDeviceList
             self.allowDuplicates = allowDuplicates
+            self.manufaturerId = manufacturerId
             self.deviceNameFilter = name
             self.deviceNamePrefixFilter = namePrefix
+
+            self.lastAdvertsMap = [String: Data?]() // TODO maybe this should be cleared by Clear button?
+            self.discardSameRawAdvertisements = discardSameRawAdvertisements
 
             if shouldShowDeviceList {
                 self.showDeviceList()
@@ -114,8 +127,7 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
                 self.resolve("startScanning", "Scan started.")
             }
         } else {
-            self.stopScan()
-            self.reject("startScanning", "Already scanning. Stopping now.")
+            self.reject("startScanning", "Already scanning")
         }
     }
 
@@ -142,7 +154,7 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
     ) {
 
         guard peripheral.state != CBPeripheralState.connected else {
-            log("found connected device", peripheral.name ?? "Unknown")
+            log("found connected device", peripheral.identifier.uuidString)
             // make sure we do not touch connected devices
             return
         }
@@ -150,11 +162,19 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         let isNew = self.discoveredDevices[peripheral.identifier.uuidString] == nil
         guard isNew || self.allowDuplicates else { return }
 
+        if let manufacturerData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data, manufacturerData.count >= 2 {
+            let firstTwoBytes = Int(manufacturerData[1]) << 8 | Int(manufacturerData[0])
+            guard self.passesManufacturerIdFilter(deviceManufacturerId: firstTwoBytes) else { return }
+            guard self.passesDifferentAdvertisementFilter(peripheralUuidString: peripheral.identifier.uuidString, currentManufacturerData: manufacturerData) else { return }
+            guard self.passesSignatureFilter(manufacturerData: manufacturerData, temp: advertisementData) else { return }
+        }
+        else { return }
+
         guard self.passesNameFilter(peripheralName: peripheral.name) else { return }
         guard self.passesNamePrefixFilter(peripheralName: peripheral.name) else { return }
 
         let device = Device(peripheral)
-        log("New device found: ", device.getName() ?? "Unknown")
+        log("New device found: ", device.getId())
         self.discoveredDevices[device.getId()] = device
 
         if shouldShowDeviceList {
@@ -289,6 +309,40 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         guard let prefix = self.deviceNamePrefixFilter else { return true }
         guard let name = peripheralName else { return false }
         return name.hasPrefix(prefix)
+    }
+
+    private func passesManufacturerIdFilter(deviceManufacturerId: Int?) -> Bool {
+        guard let manufacturerIdFilter = self.manufaturerId else { return true }
+        guard let currentManufacturerId = deviceManufacturerId else { return false }
+        return manufacturerIdFilter == currentManufacturerId
+    }
+
+    private func passesDifferentAdvertisementFilter(peripheralUuidString: String, currentManufacturerData: Data?) -> Bool {
+        guard let currentAdvert = currentManufacturerData else { return false }
+        guard let lastAdvert = self.lastAdvertsMap[peripheralUuidString] else {
+            self.lastAdvertsMap[peripheralUuidString] = currentAdvert
+            return true
+        }
+
+        if (lastAdvert != currentAdvert) {
+            self.lastAdvertsMap[peripheralUuidString] = currentAdvert
+            return true
+        } else { return false }
+    }
+
+    private func passesSignatureFilter(manufacturerData: Data?, temp: [String : Any]) -> Bool {
+        guard let advert = manufacturerData, advert.count == 37 else { return false }
+        // TODO maybe look in the future for different way of recognizing whether it is BCMv2?
+
+        let packetCounter : [UInt8] = [UInt8](advert[4..<6])
+        let data : [UInt8] = [UInt8](advert[22..<35])
+        let expectedSignature : [UInt8] = [UInt8](advert[35..<37])
+
+        let hash = SHA256.hash(data: self.signatureHashSalt + packetCounter + data)
+        var hashIter = hash.makeIterator()
+        let calculatedSignature : [UInt8] = [UInt8(hashIter.next()!), UInt8(hashIter.next()!)]
+
+        return calculatedSignature == expectedSignature
     }
 
     private func resolve(_ key: String, _ value: String) {
