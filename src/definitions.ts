@@ -207,6 +207,42 @@ export interface WriteDescriptorOptions {
   value: Data;
 }
 
+export interface DFUOptions {
+  deviceId: string;
+  fileUrl: string;
+  setUniqueDeviceNameInDfuMode: boolean;
+}
+
+export type DFUStatus =
+  | "waitingForAdvert"
+  | "deviceConnecting"
+  | "enablingDfuMode"
+  | "dfuProcessStarting"
+  | "firmwareUploading"
+  | "progressChanged"
+  | "deviceDisconnecting"
+  | "dfuCompleted"
+  | "error";
+
+export interface DFUProgress {
+  percent: number;
+  speed: number;
+  avgSpeed: number;
+  currentPart: number;
+  partsTotal: number;
+}
+
+export type DFUStatusResult =
+  | {
+      id: string;
+      status: Exclude<DFUStatus, "progressChanged">;
+    }
+  | {
+      id: string;
+      status: Extract<DFUStatus, "progressChanged">;
+      progress: DFUProgress;
+    };
+
 export interface BooleanResult {
   value: boolean;
 }
@@ -297,6 +333,7 @@ export interface BluetoothLePlugin {
   getDevices(options: GetDevicesOptions): Promise<GetDevicesResult>;
   getConnectedDevices(options: GetConnectedDevicesOptions): Promise<GetDevicesResult>;
   addListener(eventName: 'onEnabledChanged', listenerFunc: (result: BooleanResult) => void): PluginListenerHandle;
+  addListener(eventName: string, listenerFunc: (result: DFUStatusResult) => void): PluginListenerHandle;
   addListener(eventName: string, listenerFunc: (event: ReadResult) => void): PluginListenerHandle;
   addListener(eventName: 'onScanResult', listenerFunc: (result: ScanResultInternal) => void): PluginListenerHandle;
   connect(options: DeviceIdOptions & TimeoutOptions): Promise<void>;
@@ -315,4 +352,5 @@ export interface BluetoothLePlugin {
   writeDescriptor(options: WriteDescriptorOptions & TimeoutOptions): Promise<void>;
   startNotifications(options: ReadOptions): Promise<void>;
   stopNotifications(options: ReadOptions): Promise<void>;
+  updateFirmware(options: DFUOptions, callback?: (result: DFUStatusResult) => void): Promise<void>;
 }

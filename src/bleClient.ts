@@ -7,6 +7,8 @@ import type {
   BleDevice,
   BleService,
   ConnectionPriority,
+  DFUOptions,
+  DFUStatusResult,
   Data,
   InitializeOptions,
   ReadResult,
@@ -297,6 +299,16 @@ export interface BleClientInterface {
    * @param characteristic UUID of the characteristic (see [UUID format](#uuid-format))
    */
   stopNotifications(deviceId: string, service: string, characteristic: string): Promise<void>;
+
+  /**
+   * Update device's firmware.
+   * @param options DFUOptions object containing:  
+   * **deviceId** the ID of the device to use,  
+   * **fileUrl** the URL of the file with new firmware to install,  
+   * **setUniqueDeviceNameInDfuMode** the flag to define using unique device name while DFU update is in progress
+   * @param callback Callback to handle notifications about DFU progress
+   */
+  updateFirmware(options: DFUOptions, callback?: (result: DFUStatusResult) => void): Promise<void>;
 }
 
 class BleClientClass implements BleClientInterface {
@@ -678,6 +690,22 @@ class BleClientClass implements BleClientInterface {
         service,
         characteristic,
       });
+    });
+  }
+
+  async updateFirmware(options: DFUOptions, callback?: (result: DFUStatusResult) => void): Promise<void> {
+    await this.queue(async () => {
+      if (callback) {
+        const key = `updateDFUNotification|${options.deviceId}`;
+        await this.eventListeners.get(key)?.remove();
+        const listener = await BluetoothLe.addListener(
+          key,
+          (result: DFUStatusResult) => callback(result)
+        );
+        this.eventListeners.set(key, listener);
+      }
+
+      await BluetoothLe.updateFirmware(options);
     });
   }
 
