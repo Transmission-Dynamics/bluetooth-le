@@ -1,9 +1,11 @@
 import Foundation
 import CoreBluetooth
 import CryptoKit
+import iOSDFULibrary
 
 class DeviceManager: NSObject, CBCentralManagerDelegate {
     typealias Callback = (_ success: Bool, _ message: String) -> Void
+    typealias NotifyCallback = (_ key: String, _ message: [String: Any]) -> Void
     typealias StateReceiver = (_ enabled: Bool) -> Void
     typealias ScanResultCallback = (_ device: Device, _ advertisementData: [String: Any], _ rssi: NSNumber) -> Void
 
@@ -26,6 +28,9 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
     private var manufaturerId: Int?
     private var discardSameRawAdvertisements = false
     private var lastAdvertsMap = [String: Data?]()
+
+    private var firmwareUpdater: FirmwareUpdater?
+    private var dfuInitiator: DFUServiceInitiator?
 
     init(_ viewController: UIViewController?, _ displayStrings: [String: String], _ signatureHashSalt: [UInt8], _ callback: @escaping Callback) {
         self.signatureHashSalt = signatureHashSalt
@@ -144,6 +149,31 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
             }
         }
     }
+
+    // FirmwareUpdater (begin)
+    func updateFirmware(
+        _ fileUrl: URL,
+        _ device: Device,
+        _ setUniqueDeviceNameInDfuMode: Bool,
+        _ notifyCallback: NotifyCallback?,
+        _ callback: @escaping Callback
+    ) {
+        if self.dfuInitiator == nil {
+            self.dfuInitiator = DFUServiceInitiator(queue: DispatchQueue(label: "Other"))
+        }
+
+        self.firmwareUpdater = FirmwareUpdater(
+            fileUrl: fileUrl,
+            peripheral: device.getPeripheral(),
+            notifyCallback: notifyCallback,
+            callback: callback,
+            dfuInitiator: dfuInitiator!,
+            setUniqueDeviceNameInDfuMode: setUniqueDeviceNameInDfuMode
+        )
+
+        self.firmwareUpdater?.start()
+    }
+    // FirmwareUpdater (end)
 
     // didDiscover
     func centralManager(
