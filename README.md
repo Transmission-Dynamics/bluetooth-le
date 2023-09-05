@@ -81,7 +81,9 @@ Below is an index of all the methods available.
 - [`writeDescriptor(...)`](#writedescriptor)
 - [`startNotifications(...)`](#startnotifications)
 - [`stopNotifications(...)`](#stopnotifications)
+- [`updateFirmware(...)`](#updatefirmware)
 - [Interfaces](#interfaces)
+- [Type Aliases](#type-aliases)
 - [Enums](#enums)
 
 </docgen-index>
@@ -864,6 +866,21 @@ Stop listening to the changes of the value of a characteristic. For an example, 
 
 ---
 
+### updateFirmware(...)
+
+```typescript
+updateFirmware(options: DFUOptions, callback?: ((result: DFUStatusResult) => void) | undefined) => Promise<void>
+```
+
+Update device's firmware.
+
+| Param          | Type                                                                               | Description                                                                                                                                                                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`options`**  | <code><a href="#dfuoptions">DFUOptions</a></code>                                  | <a href="#dfuoptions">DFUOptions</a> object containing: **deviceId** the ID of the device to use, **fileUrl** the URL of the file with new firmware to install, **setUniqueDeviceNameInDfuMode** the flag to define using unique device name while DFU update is in progress |
+| **`callback`** | <code>((result: <a href="#dfustatusresult">DFUStatusResult</a>) =&gt; void)</code> | Callback to handle notifications about DFU progress                                                                                                                                                                                                                          |
+
+---
+
 ### Interfaces
 
 #### InitializeOptions
@@ -1000,6 +1017,46 @@ buffer as needed.
 | Prop       | Type                |
 | ---------- | ------------------- |
 | **`uuid`** | <code>string</code> |
+
+#### DFUOptions
+
+| Prop                               | Type                 |
+| ---------------------------------- | -------------------- |
+| **`deviceId`**                     | <code>string</code>  |
+| **`fileUrl`**                      | <code>string</code>  |
+| **`setUniqueDeviceNameInDfuMode`** | <code>boolean</code> |
+
+#### DFUProgress
+
+| Prop              | Type                |
+| ----------------- | ------------------- |
+| **`percent`**     | <code>number</code> |
+| **`speed`**       | <code>number</code> |
+| **`avgSpeed`**    | <code>number</code> |
+| **`currentPart`** | <code>number</code> |
+| **`partsTotal`**  | <code>number</code> |
+
+### Type Aliases
+
+#### DFUStatusResult
+
+<code>{ id: string; status: <a href="#exclude">Exclude</a>&lt;<a href="#dfustatus">DFUStatus</a>, "progressChanged"&gt;; } | { id: string; status: <a href="#extract">Extract</a>&lt;<a href="#dfustatus">DFUStatus</a>, "progressChanged"&gt;; progress: <a href="#dfuprogress">DFUProgress</a>; }</code>
+
+#### Exclude
+
+<a href="#exclude">Exclude</a> from T those types that are assignable to U
+
+<code>T extends U ? never : T</code>
+
+#### DFUStatus
+
+<code>"waitingForAdvert" | "deviceConnecting" | "enablingDfuMode" | "dfuProcessStarting" | "firmwareUploading" | "progressChanged" | "deviceDisconnecting" | "dfuCompleted" | "error"</code>
+
+#### Extract
+
+<a href="#extract">Extract</a> from T those types that are assignable to U
+
+<code>T extends U ? T : never</code>
 
 ### Enums
 
