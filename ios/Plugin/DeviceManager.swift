@@ -173,6 +173,20 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
 
         self.firmwareUpdater?.start()
     }
+
+    func cancelUpdateFirmware(_ callback: @escaping Callback) {
+        guard let firmwareUpdater = self.firmwareUpdater
+        else {
+            callback(true, "There is nothing to cancel")
+            return
+        }
+        if firmwareUpdater.cancel() {
+            callback(true, "Successfully cancelled DFU")
+        }
+        else {
+            callback(false, "Error during cancelling DFU")
+        }
+    }
     // FirmwareUpdater (end)
 
     // didDiscover

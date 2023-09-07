@@ -62,6 +62,11 @@ class FirmwareUpdater: DFUServiceDelegate, LoggerDelegate, DFUProgressDelegate {
             .with(firmware: self.firmware!)
             .start(target: self.peripheral)
     }
+
+    func cancel() -> Bool {
+        guard let controller = self.controller else { return true }
+        return controller.abort()
+    }
     
     func dfuStateDidChange(to state: DFUState) {
         var stateStr: String = "unknown";
@@ -73,16 +78,16 @@ class FirmwareUpdater: DFUServiceDelegate, LoggerDelegate, DFUProgressDelegate {
         case DFUState.validating: stateStr = "firmwareValidating"; break;
         case DFUState.disconnecting: stateStr = "deviceDisconnecting"; break;
         case DFUState.completed: stateStr = "dfuCompleted"; break;
-        case DFUState.aborted: stateStr = "dfuAborted"; break;
+        case DFUState.aborted: stateStr = "dfuCancelled"; break;
         }
 
         self.notifyCallback(self.notifyKey, ["status": stateStr])
 
         if (state == DFUState.aborted) {
-            self.callback(false, "Device firmware update aborted")
+            self.callback(false, "Device firmware update cancelled")
         }
         if (state == DFUState.completed) {
-            self.callback(true, "Device firware update completed")
+            self.callback(true, "Device firmware update completed")
         }
     }
     

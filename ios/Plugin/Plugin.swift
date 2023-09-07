@@ -532,6 +532,17 @@ public class BluetoothLe: CAPPlugin {
                 }
             })
     }
+
+    @objc func cancelUpdateFirmware(_ call: CAPPluginCall) {
+        self.deviceManager?.cancelUpdateFirmware(
+            {(success, value) -> Void in
+                if success {
+                    call.resolve()
+                } else {
+                    call.reject(value)
+                }
+            })
+    }
     // FirmwareUpdater (end)
 
     private func loadPluginConfig() -> Void {
