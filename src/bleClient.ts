@@ -309,6 +309,11 @@ export interface BleClientInterface {
    * @param callback Callback to handle notifications about DFU progress
    */
   updateFirmware(options: DFUOptions, callback?: (result: DFUStatusResult) => void): Promise<void>;
+
+  /**
+   * Cancel current device's firmware update
+   */
+  cancelUpdateFirmware(): Promise<void>;
 }
 
 class BleClientClass implements BleClientInterface {
@@ -706,6 +711,12 @@ class BleClientClass implements BleClientInterface {
       }
 
       await BluetoothLe.updateFirmware(options);
+    });
+  }
+
+  async cancelUpdateFirmware(): Promise<void> {
+    await this.queue(async () => {
+      await BluetoothLe.cancelUpdateFirmware();
     });
   }
 

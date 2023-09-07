@@ -222,6 +222,7 @@ export type DFUStatus =
   | "progressChanged"
   | "deviceDisconnecting"
   | "dfuCompleted"
+  | "dfuCancelled"
   | "error";
 
 export interface DFUProgress {
@@ -353,4 +354,5 @@ export interface BluetoothLePlugin {
   startNotifications(options: ReadOptions): Promise<void>;
   stopNotifications(options: ReadOptions): Promise<void>;
   updateFirmware(options: DFUOptions, callback?: (result: DFUStatusResult) => void): Promise<void>;
+  cancelUpdateFirmware(): Promise<void>;
 }
