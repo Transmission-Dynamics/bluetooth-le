@@ -82,6 +82,7 @@ Below is an index of all the methods available.
 - [`startNotifications(...)`](#startnotifications)
 - [`stopNotifications(...)`](#stopnotifications)
 - [`updateFirmware(...)`](#updatefirmware)
+- [`cancelUpdateFirmware()`](#cancelupdatefirmware)
 - [Interfaces](#interfaces)
 - [Type Aliases](#type-aliases)
 - [Enums](#enums)
@@ -881,6 +882,16 @@ Update device's firmware.
 
 ---
 
+### cancelUpdateFirmware()
+
+```typescript
+cancelUpdateFirmware() => Promise<void>
+```
+
+Cancel current device's firmware update
+
+---
+
 ### Interfaces
 
 #### InitializeOptions
@@ -1050,7 +1061,7 @@ buffer as needed.
 
 #### DFUStatus
 
-<code>"waitingForAdvert" | "deviceConnecting" | "enablingDfuMode" | "dfuProcessStarting" | "firmwareUploading" | "progressChanged" | "deviceDisconnecting" | "dfuCompleted" | "error"</code>
+<code>"waitingForAdvert" | "deviceConnecting" | "enablingDfuMode" | "dfuProcessStarting" | "firmwareUploading" | "progressChanged" | "deviceDisconnecting" | "dfuCompleted" | "dfuCancelled" | "error"</code>
 
 #### Extract
 
