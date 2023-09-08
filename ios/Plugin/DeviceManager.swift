@@ -210,7 +210,9 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
             let firstTwoBytes = Int(manufacturerData[1]) << 8 | Int(manufacturerData[0])
             guard self.passesManufacturerIdFilter(deviceManufacturerId: firstTwoBytes) else { return }
             guard self.passesDifferentAdvertisementFilter(peripheralUuidString: peripheral.identifier.uuidString, currentManufacturerData: manufacturerData) else { return }
-            guard self.passesSignatureFilter(manufacturerData: manufacturerData, temp: advertisementData) else { return }
+
+            let localName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
+            guard self.passesSignatureFilter(manufacturerData: manufacturerData, temp: advertisementData) || (localName?.contains("DfuTarg") ?? false) else { return }
         }
         else { return }
 
