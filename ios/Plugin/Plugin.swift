@@ -16,13 +16,19 @@ public class BluetoothLe: CAPPlugin {
     private var deviceManager: DeviceManager?
     private var deviceMap = [String: Device]()
     private var displayStrings = [String: String]()
+    private var signatureHashSalt = [UInt8](repeating: 0, count: 16)
 
     override public func load() {
-        self.displayStrings = self.getDisplayStrings()
+        self.loadPluginConfig()
     }
 
     @objc func initialize(_ call: CAPPluginCall) {
-        self.deviceManager = DeviceManager(self.bridge?.viewController, self.displayStrings, {(success, message) -> Void in
+        guard !self.signatureHashSalt.dropFirst().allSatisfy({ $0 == self.signatureHashSalt.first }) else {
+            call.reject("Aborting initialization due to signatureHashSalt having default value!")
+            return
+        }
+
+        self.deviceManager = DeviceManager(self.bridge?.viewController, self.displayStrings, self.signatureHashSalt, {(success, message) -> Void in
             if success {
                 call.resolve()
             } else {
@@ -112,6 +118,8 @@ public class BluetoothLe: CAPPlugin {
             name,
             namePrefix,
             false,
+            nil,
+            false,
             true,
             30, {(success, message) -> Void in
                 // selected a device
@@ -139,12 +147,16 @@ public class BluetoothLe: CAPPlugin {
         let name = call.getString("name")
         let namePrefix = call.getString("namePrefix")
         let allowDuplicates = call.getBool("allowDuplicates", false)
+        let manufacturerId = call.getInt("manufacturerId")
+        let discardSameRawAdvertisements = call.getBool("discardSameRawAdvertisements", false)
 
         deviceManager.startScanning(
             serviceUUIDs,
             name,
             namePrefix,
             allowDuplicates,
+            manufacturerId,
+            discardSameRawAdvertisements,
             false,
             nil, {(success, message) -> Void in
                 if success {
@@ -485,6 +497,24 @@ public class BluetoothLe: CAPPlugin {
                     call.reject(value)
                 }
             })
+    }
+
+    private func loadPluginConfig() -> Void {
+        let pluginConfig = getConfig()
+        let configJSON = pluginConfig.getConfigJSON()
+
+        guard let saltString = configJSON["signatureHashSalt"] as? String else {
+            log("Plugin configuration: signatureHashSalt is missing")
+            return
+        }
+        self.signatureHashSalt = Array(saltString.utf8)
+
+        var displayStrings = [String: String]()
+        displayStrings["noDeviceFound"] = configJSON["noDeviceFound"] as? String ?? "No device found"
+        displayStrings["availableDevices"] = configJSON["availableDevices"] as? String ?? "Available devices"
+        displayStrings["scanning"] = configJSON["scanning"] as? String ?? "Scanning..."
+        displayStrings["cancel"] = configJSON["cancel"] as? String ?? "Cancel"
+        self.displayStrings = displayStrings
     }
 
     private func getDisplayStrings() -> [String: String] {
