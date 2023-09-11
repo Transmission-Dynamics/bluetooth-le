@@ -105,7 +105,7 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
             self.deviceNameFilter = name
             self.deviceNamePrefixFilter = namePrefix
 
-            self.lastAdvertsMap = [String: Data?]() // TODO maybe this should be cleared by Clear button?
+            self.lastAdvertsMap = [String: Data?]()
             self.discardSameRawAdvertisements = discardSameRawAdvertisements
 
             if shouldShowDeviceList {
@@ -332,7 +332,6 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
 
     private func passesSignatureFilter(manufacturerData: Data?, temp: [String : Any]) -> Bool {
         guard let advert = manufacturerData, advert.count == 37 else { return false }
-        // TODO maybe look in the future for different way of recognizing whether it is BCMv2?
 
         let packetCounter : [UInt8] = [UInt8](advert[4..<6])
         let data : [UInt8] = [UInt8](advert[22..<35])
