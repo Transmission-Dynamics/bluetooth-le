@@ -71,14 +71,14 @@ class FirmwareUpdater: DFUServiceDelegate, LoggerDelegate, DFUProgressDelegate {
     func dfuStateDidChange(to state: DFUState) {
         var stateStr: String = "unknown";
         switch(state) {
-        case DFUState.connecting: stateStr = "deviceConnecting"; break;
-        case DFUState.starting: stateStr = "dfuProcessStarting"; break;
-        case DFUState.enablingDfuMode: stateStr = "enablingDfuMode"; break;
-        case DFUState.uploading: stateStr = "firmwareUploading"; break;
-        case DFUState.validating: stateStr = "firmwareValidating"; break;
-        case DFUState.disconnecting: stateStr = "deviceDisconnecting"; break;
-        case DFUState.completed: stateStr = "dfuCompleted"; break;
-        case DFUState.aborted: stateStr = "dfuCancelled"; break;
+            case DFUState.connecting: stateStr = "deviceConnecting"; break;
+            case DFUState.starting: stateStr = "dfuProcessStarting"; break;
+            case DFUState.enablingDfuMode: stateStr = "enablingDfuMode"; break;
+            case DFUState.uploading: stateStr = "firmwareUploading"; break;
+            case DFUState.validating: stateStr = "firmwareValidating"; break;
+            case DFUState.disconnecting: stateStr = "deviceDisconnecting"; break;
+            case DFUState.completed: stateStr = "dfuCompleted"; break;
+            case DFUState.aborted: stateStr = "dfuCancelled"; break;
         }
 
         self.notifyCallback(self.notifyKey, ["status": stateStr])
