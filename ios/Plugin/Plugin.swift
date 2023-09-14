@@ -563,24 +563,6 @@ public class BluetoothLe: CAPPlugin {
         self.displayStrings = displayStrings
     }
 
-    private func loadPluginConfig() -> Void {
-        let pluginConfig = getConfig()
-        let configJSON = pluginConfig.getConfigJSON()
-
-        guard let saltString = configJSON["signatureHashSalt"] as? String else {
-            log("Plugin configuration: signatureHashSalt is missing")
-            return
-        }
-        self.signatureHashSalt = Array(saltString.utf8)
-
-        var displayStrings = [String: String]()
-        displayStrings["noDeviceFound"] = configJSON["noDeviceFound"] as? String ?? "No device found"
-        displayStrings["availableDevices"] = configJSON["availableDevices"] as? String ?? "Available devices"
-        displayStrings["scanning"] = configJSON["scanning"] as? String ?? "Scanning..."
-        displayStrings["cancel"] = configJSON["cancel"] as? String ?? "Cancel"
-        self.displayStrings = displayStrings
-    }
-
     private func getDisplayStrings() -> [String: String] {
         let configDisplayStrings = getConfigValue("displayStrings") as? [String: String] ?? [String: String]()
         var displayStrings = [String: String]()
