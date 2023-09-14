@@ -25,7 +25,7 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
     private var deviceNamePrefixFilter: String?
     private var shouldShowDeviceList = false
     private var allowDuplicates = false
-    private var manufaturerId: Int?
+    private var manufacturerId: Int?
     private var discardSameRawAdvertisements = false
     private var lastAdvertsMap = [String: Data?]()
 
@@ -106,11 +106,11 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
             self.discoveredDevices = [String: Device]()
             self.shouldShowDeviceList = shouldShowDeviceList
             self.allowDuplicates = allowDuplicates
-            self.manufaturerId = manufacturerId
+            self.manufacturerId = manufacturerId
             self.deviceNameFilter = name
             self.deviceNamePrefixFilter = namePrefix
 
-            self.lastAdvertsMap = [String: Data?]() // TODO maybe this should be cleared by Clear button?
+            self.lastAdvertsMap = [String: Data?]()
             self.discardSameRawAdvertisements = discardSameRawAdvertisements
 
             if shouldShowDeviceList {
@@ -358,7 +358,7 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
     }
 
     private func passesManufacturerIdFilter(deviceManufacturerId: Int?) -> Bool {
-        guard let manufacturerIdFilter = self.manufaturerId else { return true }
+        guard let manufacturerIdFilter = self.manufacturerId else { return true }
         guard let currentManufacturerId = deviceManufacturerId else { return false }
         return manufacturerIdFilter == currentManufacturerId
     }
@@ -378,7 +378,6 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
 
     private func passesSignatureFilter(manufacturerData: Data?, temp: [String : Any]) -> Bool {
         guard let advert = manufacturerData, advert.count == 37 else { return false }
-        // TODO maybe look in the future for different way of recognizing whether it is BCMv2?
 
         let packetCounter : [UInt8] = [UInt8](advert[4..<6])
         let data : [UInt8] = [UInt8](advert[22..<35])
