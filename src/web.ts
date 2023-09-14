@@ -28,7 +28,7 @@ import type {
 } from './definitions';
 import { runWithTimeout } from './timeout';
 
-export class BluetoothLeWeb extends WebPlugin implements BluetoothLePlugin {
+export class BluetoothLeWeb extends WebPlugin implements Omit<BluetoothLePlugin, "updateFirmware" | "cancelUpdateFirmware"> {
   private deviceMap = new Map<string, BluetoothDevice>();
   private discoveredDevices = new Map<string, boolean>();
   private scan: BluetoothLEScan | null = null;

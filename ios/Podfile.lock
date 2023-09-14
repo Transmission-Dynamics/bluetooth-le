@@ -2,10 +2,19 @@ PODS:
   - Capacitor (5.0.1):
     - CapacitorCordova
   - CapacitorCordova (5.0.1)
+  - iOSDFULibrary (4.13.0):
+    - ZIPFoundation (= 0.9.11)
+  - ZIPFoundation (0.9.11)
 
 DEPENDENCIES:
   - "Capacitor (from `../node_modules/@capacitor/ios`)"
   - "CapacitorCordova (from `../node_modules/@capacitor/ios`)"
+  - iOSDFULibrary
+
+SPEC REPOS:
+  trunk:
+    - iOSDFULibrary
+    - ZIPFoundation
 
 EXTERNAL SOURCES:
   Capacitor:
@@ -16,7 +25,9 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Capacitor: c550a8485d00d5d92b4f91a245f43555a2230eb6
   CapacitorCordova: 4f8cf089c691f0e21032d22b1014808308cbc467
+  iOSDFULibrary: 3b9de67ed4bfb901b5f09c2fea843f65e152612d
+  ZIPFoundation: b1f0de4eed33e74a676f76e12559ab6b75990197
 
-PODFILE CHECKSUM: 14e8b2400457751b865e1c327e7cfa1c6fa67da6
+PODFILE CHECKSUM: fd4bbd80d62147f1e2a91c2ee12d2db7b3ad60b3
 
 COCOAPODS: 1.12.1

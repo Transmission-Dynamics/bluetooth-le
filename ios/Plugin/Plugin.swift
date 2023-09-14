@@ -498,6 +498,70 @@ public class BluetoothLe: CAPPlugin {
                 }
             })
     }
+    
+    // FirmwareUpdater (begin)
+    @objc func updateFirmware(_ call: CAPPluginCall) {
+        guard self.getDeviceManager(call) != nil else { return }
+        guard let device = self.getDevice(call, checkConnection: false) else { return }
+
+        guard let fileUrlString = call.getString("fileUrl"), !fileUrlString.isEmpty
+        else {
+            call.reject("File URL is required")
+            return
+        }
+        guard let fileUrl = URL(string: fileUrlString)
+        else {
+            call.reject("Couldn't parse file URL")
+            return
+        }
+
+        let setUniqueDeviceNameInDfuMode = call.getBool("setUniqueDeviceNameInDfuMode") ?? false
+
+        self.deviceManager?.updateFirmware(
+            fileUrl,
+            device,
+            setUniqueDeviceNameInDfuMode,
+            {(key, value) -> Void in
+                self.notifyListeners(key, data: value)
+            },
+            {(success, value) -> Void in
+                if success {
+                    call.resolve()
+                } else {
+                    call.reject(value)
+                }
+            })
+    }
+
+    @objc func cancelUpdateFirmware(_ call: CAPPluginCall) {
+        self.deviceManager?.cancelUpdateFirmware(
+            {(success, value) -> Void in
+                if success {
+                    call.resolve()
+                } else {
+                    call.reject(value)
+                }
+            })
+    }
+    // FirmwareUpdater (end)
+
+    private func loadPluginConfig() -> Void {
+        let pluginConfig = getConfig()
+        let configJSON = pluginConfig.getConfigJSON()
+
+        guard let saltString = configJSON["signatureHashSalt"] as? String else {
+            log("Plugin configuration: signatureHashSalt is missing")
+            return
+        }
+        self.signatureHashSalt = Array(saltString.utf8)
+
+        var displayStrings = [String: String]()
+        displayStrings["noDeviceFound"] = configJSON["noDeviceFound"] as? String ?? "No device found"
+        displayStrings["availableDevices"] = configJSON["availableDevices"] as? String ?? "Available devices"
+        displayStrings["scanning"] = configJSON["scanning"] as? String ?? "Scanning..."
+        displayStrings["cancel"] = configJSON["cancel"] as? String ?? "Cancel"
+        self.displayStrings = displayStrings
+    }
 
     private func loadPluginConfig() -> Void {
         let pluginConfig = getConfig()

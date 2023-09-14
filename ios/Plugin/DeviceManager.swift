@@ -1,9 +1,11 @@
 import Foundation
 import CoreBluetooth
 import CryptoKit
+import iOSDFULibrary
 
 class DeviceManager: NSObject, CBCentralManagerDelegate {
     typealias Callback = (_ success: Bool, _ message: String) -> Void
+    typealias NotifyCallback = (_ key: String, _ message: [String: Any]) -> Void
     typealias StateReceiver = (_ enabled: Bool) -> Void
     typealias ScanResultCallback = (_ device: Device, _ advertisementData: [String: Any], _ rssi: NSNumber) -> Void
 
@@ -23,9 +25,12 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
     private var deviceNamePrefixFilter: String?
     private var shouldShowDeviceList = false
     private var allowDuplicates = false
-    private var manufaturerId: Int?
+    private var manufacturerId: Int?
     private var discardSameRawAdvertisements = false
     private var lastAdvertsMap = [String: Data?]()
+
+    private var firmwareUpdater: FirmwareUpdater?
+    private var dfuInitiator: DFUServiceInitiator?
 
     init(_ viewController: UIViewController?, _ displayStrings: [String: String], _ signatureHashSalt: [UInt8], _ callback: @escaping Callback) {
         self.signatureHashSalt = signatureHashSalt
@@ -101,7 +106,7 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
             self.discoveredDevices = [String: Device]()
             self.shouldShowDeviceList = shouldShowDeviceList
             self.allowDuplicates = allowDuplicates
-            self.manufaturerId = manufacturerId
+            self.manufacturerId = manufacturerId
             self.deviceNameFilter = name
             self.deviceNamePrefixFilter = namePrefix
 
@@ -145,6 +150,45 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         }
     }
 
+    // FirmwareUpdater (begin)
+    func updateFirmware(
+        _ fileUrl: URL,
+        _ device: Device,
+        _ setUniqueDeviceNameInDfuMode: Bool,
+        _ notifyCallback: NotifyCallback?,
+        _ callback: @escaping Callback
+    ) {
+        if self.dfuInitiator == nil {
+            self.dfuInitiator = DFUServiceInitiator(queue: DispatchQueue(label: "Other"))
+        }
+
+        self.firmwareUpdater = FirmwareUpdater(
+            fileUrl: fileUrl,
+            peripheral: device.getPeripheral(),
+            notifyCallback: notifyCallback,
+            callback: callback,
+            dfuInitiator: dfuInitiator!,
+            setUniqueDeviceNameInDfuMode: setUniqueDeviceNameInDfuMode
+        )
+
+        self.firmwareUpdater?.start()
+    }
+
+    func cancelUpdateFirmware(_ callback: @escaping Callback) {
+        guard let firmwareUpdater = self.firmwareUpdater
+        else {
+            callback(true, "There is nothing to cancel")
+            return
+        }
+        if firmwareUpdater.cancel() {
+            callback(true, "Successfully cancelled DFU")
+        }
+        else {
+            callback(false, "Error during cancelling DFU")
+        }
+    }
+    // FirmwareUpdater (end)
+
     // didDiscover
     func centralManager(
         _ central: CBCentralManager,
@@ -166,7 +210,9 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
             let firstTwoBytes = Int(manufacturerData[1]) << 8 | Int(manufacturerData[0])
             guard self.passesManufacturerIdFilter(deviceManufacturerId: firstTwoBytes) else { return }
             guard self.passesDifferentAdvertisementFilter(peripheralUuidString: peripheral.identifier.uuidString, currentManufacturerData: manufacturerData) else { return }
-            guard self.passesSignatureFilter(manufacturerData: manufacturerData, temp: advertisementData) else { return }
+
+            let localName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
+            guard self.passesSignatureFilter(manufacturerData: manufacturerData, temp: advertisementData) || (localName?.contains("DfuTarg") ?? false) else { return }
         }
         else { return }
 
@@ -312,7 +358,7 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
     }
 
     private func passesManufacturerIdFilter(deviceManufacturerId: Int?) -> Bool {
-        guard let manufacturerIdFilter = self.manufaturerId else { return true }
+        guard let manufacturerIdFilter = self.manufacturerId else { return true }
         guard let currentManufacturerId = deviceManufacturerId else { return false }
         return manufacturerIdFilter == currentManufacturerId
     }

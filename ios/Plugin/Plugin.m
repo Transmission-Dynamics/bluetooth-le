@@ -36,4 +36,6 @@ CAP_PLUGIN(BluetoothLe, "BluetoothLe",
            CAP_PLUGIN_METHOD(writeDescriptor, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(startNotifications, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(stopNotifications, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(updateFirmware, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(cancelUpdateFirmware, CAPPluginReturnPromise);
 )
