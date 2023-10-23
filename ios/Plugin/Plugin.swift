@@ -18,6 +18,8 @@ public class BluetoothLe: CAPPlugin {
     private var displayStrings = [String: String]()
     private var signatureHashSalt = [UInt8](repeating: 0, count: 16)
 
+    private var mapAccessQueue = DispatchQueue(label: "pluginMapAccess")
+
     override public func load() {
         self.loadPluginConfig()
     }
@@ -128,7 +130,9 @@ public class BluetoothLe: CAPPlugin {
                         call.reject("Device not found.")
                         return
                     }
-                    self.deviceMap[device.getId()] = device
+                    self.mapAccessQueue.sync {
+                        self.deviceMap[device.getId()] = device
+                    }
                     let bleDevice: BleDevice = self.getBleDevice(device)
                     call.resolve(bleDevice)
                 } else {
@@ -165,7 +169,9 @@ public class BluetoothLe: CAPPlugin {
                     call.reject(message)
                 }
             }, {(device, advertisementData, rssi) -> Void in
-                self.deviceMap[device.getId()] = device
+                self.mapAccessQueue.sync {
+                    self.deviceMap[device.getId()] = device
+                }
                 let data = self.getScanResult(device, advertisementData, rssi)
                 self.notifyListeners("onScanResult", data: data)
             }
@@ -190,12 +196,14 @@ public class BluetoothLe: CAPPlugin {
         let peripherals = deviceManager.getDevices(deviceUUIDs)
         let bleDevices: [BleDevice] = peripherals.map({peripheral in
             let deviceId = peripheral.identifier.uuidString
-            guard let device = self.deviceMap[deviceId] else {
-                let newDevice = Device(peripheral)
-                self.deviceMap[newDevice.getId()] = newDevice
-                return self.getBleDevice(newDevice)
+            return self.mapAccessQueue.sync {
+                guard let device = self.deviceMap[deviceId] else {
+                    let newDevice = Device(peripheral)
+                    self.deviceMap[newDevice.getId()] = newDevice
+                    return self.getBleDevice(newDevice)
+                }
+                return self.getBleDevice(device)
             }
-            return self.getBleDevice(device)
         })
         call.resolve(["devices": bleDevices])
     }
@@ -212,12 +220,14 @@ public class BluetoothLe: CAPPlugin {
         let peripherals = deviceManager.getConnectedDevices(serviceUUIDs)
         let bleDevices: [BleDevice] = peripherals.map({peripheral in
             let deviceId = peripheral.identifier.uuidString
-            guard let device = self.deviceMap[deviceId] else {
-                let newDevice = Device(peripheral)
-                self.deviceMap[newDevice.getId()] = newDevice
-                return self.getBleDevice(newDevice)
+            return self.mapAccessQueue.sync {
+                guard let device = self.deviceMap[deviceId] else {
+                    let newDevice = Device(peripheral)
+                    self.deviceMap[newDevice.getId()] = newDevice
+                    return self.getBleDevice(newDevice)
+                }
+                return self.getBleDevice(device)
             }
-            return self.getBleDevice(device)
         })
         call.resolve(["devices": bleDevices])
     }
@@ -594,7 +604,10 @@ public class BluetoothLe: CAPPlugin {
             call.reject("deviceId required.")
             return nil
         }
-        guard let device = self.deviceMap[deviceId] else {
+        let deviceTemp = self.mapAccessQueue.sync {
+            return self.deviceMap[deviceId]
+        }
+        guard let device = deviceTemp else {
             call.reject("Device not found. Call 'requestDevice', 'requestLEScan' or 'getDevices' first.")
             return nil
         }

@@ -5,6 +5,8 @@ import CoreBluetooth
 class Device: NSObject, CBPeripheralDelegate {
     typealias Callback = (_ success: Bool, _ value: String) -> Void
 
+    private var timeoutDispatchQueue = DispatchQueue(label: "timeouts")
+
     private var peripheral: CBPeripheral!
     private var callbackMap = [String: Callback]()
     private var timeoutMap = [String: DispatchWorkItem]()
@@ -418,6 +420,6 @@ class Device: NSObject, CBPeripheralDelegate {
             self.reject(key, message)
         }
         self.timeoutMap[key] = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: workItem)
+        timeoutDispatchQueue.asyncAfter(deadline: .now() + timeout, execute: workItem)
     }
 }

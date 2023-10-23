@@ -11,6 +11,9 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
 
     private var signatureHashSalt: [UInt8]
 
+    private var dispatchQueue = DispatchQueue(label: "bluetooth")
+    private var mapAccessQueue = DispatchQueue(label: "mapAccess")
+
     private var centralManager: CBCentralManager!
     private var viewController: UIViewController?
     private var displayStrings: [String: String]!
@@ -38,7 +41,7 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         self.viewController = viewController
         self.displayStrings = displayStrings
         self.callbackMap["initialize"] = callback
-        self.centralManager = CBCentralManager(delegate: self, queue: DispatchQueue.main)
+        self.centralManager = CBCentralManager(delegate: self, queue: dispatchQueue)
     }
 
     func setDisplayStrings(_ displayStrings: [String: String]) {
@@ -99,7 +102,9 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         _ callback: @escaping Callback,
         _ scanResultCallback: @escaping ScanResultCallback
     ) {
-        self.callbackMap["startScanning"] = callback
+        self.mapAccessQueue.sync {
+            self.callbackMap["startScanning"] = callback
+        }
         self.scanResultCallback = scanResultCallback
 
         if self.centralManager.isScanning == false {
@@ -110,7 +115,9 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
             self.deviceNameFilter = name
             self.deviceNamePrefixFilter = namePrefix
 
-            self.lastAdvertsMap = [String: Data?]()
+            self.mapAccessQueue.sync {
+                self.lastAdvertsMap = [String: Data?]()
+            }
             self.discardSameRawAdvertisements = discardSameRawAdvertisements
 
             if shouldShowDeviceList {
@@ -121,7 +128,7 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
                 self.stopScanWorkItem = DispatchWorkItem {
                     self.stopScan()
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + scanDuration!, execute: self.stopScanWorkItem!)
+                dispatchQueue.asyncAfter(deadline: .now() + scanDuration!, execute: self.stopScanWorkItem!)
             }
             self.centralManager.scanForPeripherals(
                 withServices: serviceUUIDs,
@@ -141,7 +148,7 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         self.centralManager.stopScan()
         self.stopScanWorkItem?.cancel()
         self.stopScanWorkItem = nil
-        DispatchQueue.main.async { [weak self] in
+        dispatchQueue.async { [weak self] in
             if self?.discoveredDevices.count == 0 {
                 self?.alertController?.title = self?.displayStrings["noDeviceFound"]
             } else {
@@ -268,7 +275,11 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         _ callback: @escaping Callback
     ) {
         let key = "connect|\(device.getId())"
-        self.callbackMap[key] = callback
+
+        self.mapAccessQueue.sync {
+            self.callbackMap[key] = callback
+        }
+
         log("Connecting to peripheral", device.getPeripheral())
         self.centralManager.connect(device.getPeripheral(), options: nil)
         self.setConnectionTimeout(key, "Connection timeout.", device, connectionTimeout)
@@ -305,7 +316,9 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         _ callback: @escaping Callback
     ) {
         let key = "onDisconnected|\(device.getId())"
-        self.callbackMap[key] = callback
+        self.mapAccessQueue.sync {
+            self.callbackMap[key] = callback
+        }
     }
 
     func disconnect(
@@ -314,7 +327,10 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         _ callback: @escaping Callback
     ) {
         let key = "disconnect|\(device.getId())"
-        self.callbackMap[key] = callback
+        self.mapAccessQueue.sync {
+            self.callbackMap[key] = callback
+        }
+
         if device.isConnected() == false {
             self.resolve(key, "Disconnected.")
             return
@@ -366,12 +382,16 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
     private func passesDifferentAdvertisementFilter(peripheralUuidString: String, currentManufacturerData: Data?) -> Bool {
         guard let currentAdvert = currentManufacturerData else { return false }
         guard let lastAdvert = self.lastAdvertsMap[peripheralUuidString] else {
-            self.lastAdvertsMap[peripheralUuidString] = currentAdvert
+            self.mapAccessQueue.sync {
+                self.lastAdvertsMap[peripheralUuidString] = currentAdvert
+            }
             return true
         }
 
         if (lastAdvert != currentAdvert) {
-            self.lastAdvertsMap[peripheralUuidString] = currentAdvert
+            self.mapAccessQueue.sync {
+                self.lastAdvertsMap[peripheralUuidString] = currentAdvert
+            }
             return true
         } else { return false }
     }
@@ -391,24 +411,28 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
     }
 
     private func resolve(_ key: String, _ value: String) {
-        let callback = self.callbackMap[key]
-        if callback != nil {
-            log("Resolve", key, value)
-            callback!(true, value)
-            self.callbackMap[key] = nil
-            self.timeoutMap[key]?.cancel()
-            self.timeoutMap[key] = nil
+        self.mapAccessQueue.sync {
+            let callback = self.callbackMap[key]
+            if callback != nil {
+                log("Resolve", key, value)
+                callback!(true, value)
+                self.callbackMap[key] = nil
+                self.timeoutMap[key]?.cancel()
+                self.timeoutMap[key] = nil
+            }
         }
     }
 
     private func reject(_ key: String, _ value: String) {
-        let callback = self.callbackMap[key]
-        if callback != nil {
-            log("Reject", key, value)
-            callback!(false, value)
-            self.callbackMap[key] = nil
-            self.timeoutMap[key]?.cancel()
-            self.timeoutMap[key] = nil
+        self.mapAccessQueue.sync {
+            let callback = self.callbackMap[key]
+            if callback != nil {
+                log("Reject", key, value)
+                callback!(false, value)
+                self.callbackMap[key] = nil
+                self.timeoutMap[key]?.cancel()
+                self.timeoutMap[key] = nil
+            }
         }
     }
 
@@ -420,8 +444,10 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         let workItem = DispatchWorkItem {
             self.reject(key, message)
         }
-        self.timeoutMap[key] = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: workItem)
+        self.mapAccessQueue.sync {
+            self.timeoutMap[key] = workItem
+        }
+        dispatchQueue.asyncAfter(deadline: .now() + timeout, execute: workItem)
     }
 
     private func setConnectionTimeout(
@@ -433,11 +459,15 @@ class DeviceManager: NSObject, CBCentralManagerDelegate {
         let workItem = DispatchWorkItem {
             // do not call onDisconnnected, which is triggered by cancelPeripheralConnection
             let key = "onDisconnected|\(device.getId())"
-            self.callbackMap[key] = nil
+            self.mapAccessQueue.sync {
+                self.callbackMap[key] = nil
+            }
             self.centralManager.cancelPeripheralConnection(device.getPeripheral())
             self.reject(key, message)
         }
-        self.timeoutMap[key] = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + connectionTimeout, execute: workItem)
+        self.mapAccessQueue.sync {
+            self.timeoutMap[key] = workItem
+        }
+        dispatchQueue.asyncAfter(deadline: .now() + connectionTimeout, execute: workItem)
     }
 }
