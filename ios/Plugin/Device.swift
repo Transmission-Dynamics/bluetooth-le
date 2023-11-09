@@ -6,6 +6,7 @@ class Device: NSObject, CBPeripheralDelegate {
     typealias Callback = (_ success: Bool, _ value: String) -> Void
 
     private var timeoutDispatchQueue = DispatchQueue(label: "timeouts")
+    private var mapAccessQueue = DispatchQueue(label: "mapAccess")
 
     private var peripheral: CBPeripheral!
     private var callbackMap = [String: Callback]()
@@ -44,7 +45,9 @@ class Device: NSObject, CBPeripheralDelegate {
         _ callback: @escaping Callback
     ) {
         let key = "connect"
-        self.callbackMap[key] = callback
+        self.mapAccessQueue.sync {
+            self.callbackMap[key] = callback
+        }
         self.setTimeout(key, "Connection timeout", connectionTimeout)
     }
 
@@ -105,7 +108,9 @@ class Device: NSObject, CBPeripheralDelegate {
         _ callback: @escaping Callback
     ) {
         let key = "discoverServices"
-        self.callbackMap[key] = callback
+        self.mapAccessQueue.sync {
+            self.callbackMap[key] = callback
+        }
         self.peripheral.discoverServices(nil)
         self.setTimeout(key, "Service discovery timeout.", timeout)
     }
@@ -120,7 +125,9 @@ class Device: NSObject, CBPeripheralDelegate {
         _ callback: @escaping Callback
     ) {
         let key = "readRssi"
-        self.callbackMap[key] = callback
+        self.mapAccessQueue.sync {
+            self.callbackMap[key] = callback
+        }
         log("Reading RSSI value")
         self.peripheral.readRSSI()
         self.setTimeout(key, "Reading RSSI timeout.", timeout)
@@ -178,7 +185,9 @@ class Device: NSObject, CBPeripheralDelegate {
         _ callback: @escaping Callback
     ) {
         let key = "read|\(serviceUUID.uuidString)|\(characteristicUUID.uuidString)"
-        self.callbackMap[key] = callback
+        self.mapAccessQueue.sync {
+            self.callbackMap[key] = callback
+        }
         guard let characteristic = self.getCharacteristic(serviceUUID, characteristicUUID) else {
             self.reject(key, "Characteristic not found.")
             return
@@ -208,9 +217,11 @@ class Device: NSObject, CBPeripheralDelegate {
         self.resolve(key, valueString)
 
         // notifications
-        let callback = self.callbackMap[notifyKey]
-        if callback != nil {
-            callback!(true, valueString)
+        self.mapAccessQueue.sync {
+            let callback = self.callbackMap[notifyKey]
+            if callback != nil {
+                callback!(true, valueString)
+            }
         }
     }
 
@@ -222,7 +233,9 @@ class Device: NSObject, CBPeripheralDelegate {
         _ callback: @escaping Callback
     ) {
         let key = "readDescriptor|\(serviceUUID.uuidString)|\(characteristicUUID.uuidString)|\(descriptorUUID.uuidString)"
-        self.callbackMap[key] = callback
+        self.mapAccessQueue.sync {
+            self.callbackMap[key] = callback
+        }
         guard let descriptor = self.getDescriptor(serviceUUID, characteristicUUID, descriptorUUID) else {
             self.reject(key, "Descriptor not found.")
             return
@@ -259,7 +272,9 @@ class Device: NSObject, CBPeripheralDelegate {
         _ callback: @escaping Callback
     ) {
         let key = "write|\(serviceUUID.uuidString)|\(characteristicUUID.uuidString)"
-        self.callbackMap[key] = callback
+        self.mapAccessQueue.sync {
+            self.callbackMap[key] = callback
+        }
         guard let characteristic = self.getCharacteristic(serviceUUID, characteristicUUID) else {
             self.reject(key, "Characteristic not found.")
             return
@@ -295,7 +310,9 @@ class Device: NSObject, CBPeripheralDelegate {
         _ callback: @escaping Callback
     ) {
         let key = "writeDescriptor|\(serviceUUID.uuidString)|\(characteristicUUID.uuidString)|\(descriptorUUID.uuidString)"
-        self.callbackMap[key] = callback
+        self.mapAccessQueue.sync {
+            self.callbackMap[key] = callback
+        }
         guard let descriptor = self.getDescriptor(serviceUUID, characteristicUUID, descriptorUUID) else {
             self.reject(key, "Descriptor not found.")
             return
@@ -328,9 +345,11 @@ class Device: NSObject, CBPeripheralDelegate {
     ) {
         let key = "setNotifications|\(serviceUUID.uuidString)|\(characteristicUUID.uuidString)"
         let notifyKey = "notification|\(serviceUUID.uuidString)|\(characteristicUUID.uuidString)"
-        self.callbackMap[key] = callback
-        if notifyCallback != nil {
-            self.callbackMap[notifyKey] = notifyCallback
+        self.mapAccessQueue.sync {
+            self.callbackMap[key] = callback
+            if notifyCallback != nil {
+                self.callbackMap[notifyKey] = notifyCallback
+            }
         }
         guard let characteristic = self.getCharacteristic(serviceUUID, characteristicUUID) else {
             self.reject(key, "Characteristic not found.")
@@ -387,13 +406,15 @@ class Device: NSObject, CBPeripheralDelegate {
         _ key: String,
         _ value: String
     ) {
-        let callback = self.callbackMap[key]
-        if callback != nil {
-            log("Resolve", key, value)
-            callback!(true, value)
-            self.callbackMap[key] = nil
-            self.timeoutMap[key]?.cancel()
-            self.timeoutMap[key] = nil
+        self.mapAccessQueue.sync {
+            let callback = self.callbackMap[key]
+            if callback != nil {
+                log("Resolve", key, value)
+                callback!(true, value)
+                self.callbackMap[key] = nil
+                self.timeoutMap[key]?.cancel()
+                self.timeoutMap[key] = nil
+            }
         }
     }
 
@@ -401,13 +422,15 @@ class Device: NSObject, CBPeripheralDelegate {
         _ key: String,
         _ value: String
     ) {
-        let callback = self.callbackMap[key]
-        if callback != nil {
-            log("Reject", key, value)
-            callback!(false, value)
-            self.callbackMap[key] = nil
-            self.timeoutMap[key]?.cancel()
-            self.timeoutMap[key] = nil
+        self.mapAccessQueue.sync {
+            let callback = self.callbackMap[key]
+            if callback != nil {
+                log("Reject", key, value)
+                callback!(false, value)
+                self.callbackMap[key] = nil
+                self.timeoutMap[key]?.cancel()
+                self.timeoutMap[key] = nil
+            }
         }
     }
 
@@ -419,7 +442,9 @@ class Device: NSObject, CBPeripheralDelegate {
         let workItem = DispatchWorkItem {
             self.reject(key, message)
         }
-        self.timeoutMap[key] = workItem
+        self.mapAccessQueue.sync {
+            self.timeoutMap[key] = workItem
+        }
         timeoutDispatchQueue.asyncAfter(deadline: .now() + timeout, execute: workItem)
     }
 }
